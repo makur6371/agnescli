@@ -5,17 +5,15 @@
 [![Python](https://img.shields.io/pypi/pyversions/agnescli)](https://pypi.org/project/agnescli/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Autonomous Agent CLI for [Agnes AI](https://agnes-ai.com). One API key, full multimodal capability - chat, code, image, and video generation.
+> **Agnes AI** - The world's first unlimited free multimodal API. Chat, image generation, and video generation, all under one API key, no usage limits.
 
-## Features
+Agnescli is the autonomous agent CLI built for [Agnes AI](https://agnes-ai.com). It combines language understanding, image generation, and video generation into a single interactive terminal experience. Ask it to write code, generate images, create videos, manage files, or chain them all together - it plans, executes, and delivers.
 
-- **Autonomous Agent** - Plans and executes tasks step by step
-- **10 Built-in Tools** - Shell, file I/O, search, code execution, image/video generation
-- **Multimodal** - Chat, text-to-image, text-to-video in one CLI
-- **Session Management** - Auto-save, resume, context compression
-- **Path Protection** - Blocks writes to sensitive files (.git, .env, .ssh, etc.)
-- **Slash Commands** - Autocomplete for 15+ commands
-- **Non-interactive Mode** - `agnescli -p "task"` for scripting
+## Why Agnes AI?
+
+- **Free & Unlimited** - No usage caps, no credit card required
+- **Multimodal** - Text, image, and video models under one API
+- **Simple** - One API key for everything
 
 ## Install
 
@@ -31,13 +29,18 @@ cd agnescli
 pip install -e .
 ```
 
-## Setup
+## Quick Start
 
 ```bash
+# 1. Get your free API key at https://agnes-ai.com
+# 2. Save it
 agnescli setup YOUR_API_KEY
+
+# 3. Start using
+agnescli
 ```
 
-Key is saved to `~/.agnescli/config.json`. Alternatively, set the `AGNES_API_KEY` environment variable.
+Or set the environment variable: `export AGNES_API_KEY=your_key`
 
 ## Usage
 
@@ -50,7 +53,19 @@ agnescli resume       # list and resume sessions
 agnescli models       # list available models
 ```
 
-### Slash Commands
+## What Can It Do?
+
+**Chat & Code** - Ask questions, write code, debug issues, explain concepts.
+
+**Generate Images** - `Generate a cyberpunk cityscape at sunset` - the agent calls Agnes Image AI and returns the result.
+
+**Generate Videos** - `Create a short video of ocean waves` - the agent submits the job, polls for progress, and delivers the video.
+
+**File Operations** - Read, write, edit files, search codebases, run shell commands - all with built-in path protection.
+
+**Plan & Execute** - `/plan build a to-do app with React` - the agent breaks it into steps, confirms with you, then executes each one.
+
+## Slash Commands
 
 Type `/` to see autocomplete suggestions.
 
@@ -72,7 +87,7 @@ Type `/` to see autocomplete suggestions.
 | `/help` | Show help |
 | `/exit` | Quit |
 
-### Agent Tools
+## Agent Tools
 
 The agent has access to 10 built-in tools:
 
@@ -89,18 +104,14 @@ The agent has access to 10 built-in tools:
 | `generate_image` | Text-to-image via Agnes Image AI |
 | `generate_video` | Text-to-video via Agnes Video AI |
 
-### Path Protection
+## Safety
 
-Write operations to sensitive paths are blocked automatically:
+**Path Protection** - Write operations to sensitive paths are blocked automatically:
 - `.git`, `.env`, `.ssh`, `.gnupg`, `.aws`, etc.
 - Root directories (`/`, `C:\`)
 - Credential files (`id_rsa`, `credentials.json`, etc.)
 
-### Context Management
-
-- Automatic context compression when conversation exceeds ~80K tokens
-- Manual compression via `/compact`
-- Session auto-save and resume capability
+**Tool Confirmation** - By default, the agent asks before executing tools. Use `-y` to auto-confirm.
 
 ## Models
 

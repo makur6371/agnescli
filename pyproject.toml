@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agnescli"
 version = "0.1.0"
-description = "Autonomous Agent CLI for Agnes AI - chat, code, image, and video generation"
+description = "Autonomous agent CLI for Agnes AI - the world's first unlimited free multimodal API. Chat, image, and video generation in one terminal."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "makur6371"}]
-keywords = ["ai", "agent", "cli", "multimodal", "image-generation", "video-generation", "agnes"]
+keywords = ["ai", "agent", "cli", "multimodal", "image-generation", "video-generation", "agnes", "free"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
