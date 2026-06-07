@@ -24,14 +24,16 @@ COMMANDS = [
     ("/exit", "", "Quit"),
 ]
 
-STYLE = Style.from_dict({
-    "prompt": "bold green",
-    "completion-menu": "bg:#2d2d2d #cccccc",
-    "completion-menu.completion": "bg:#2d2d2d #cccccc",
-    "completion-menu.completion.current": "bg:#005f87 #ffffff",
-    "completion-menu.meta.completion": "bg:#3d3d3d #888888",
-    "completion-menu.meta.completion.current": "bg:#005f87 #aaaaaa",
-})
+STYLE = Style.from_dict(
+    {
+        "prompt": "bold green",
+        "completion-menu": "bg:#2d2d2d #cccccc",
+        "completion-menu.completion": "bg:#2d2d2d #cccccc",
+        "completion-menu.completion.current": "bg:#005f87 #ffffff",
+        "completion-menu.meta.completion": "bg:#3d3d3d #888888",
+        "completion-menu.meta.completion.current": "bg:#005f87 #aaaaaa",
+    }
+)
 
 
 class SlashCompleter(Completer):

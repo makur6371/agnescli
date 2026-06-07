@@ -45,9 +45,7 @@ def resolve_api_key(explicit: str | None = None) -> str:
         return saved
     # 4. Not found
     print(
-        "[!] No API key found.\n"
-        "    Run: agnescli setup\n"
-        f"    Or set: {API_KEY_ENV}=your_key",
+        f"[!] No API key found.\n    Run: agnescli setup\n    Or set: {API_KEY_ENV}=your_key",
         file=sys.stderr,
     )
     sys.exit(1)

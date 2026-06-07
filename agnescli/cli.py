@@ -18,7 +18,9 @@ from .ui import console
 @click.option("-y", "--auto-confirm", is_flag=True, default=False, help="Skip tool execution confirmation.")
 @click.option("-p", "--prompt", default=None, help="Non-interactive mode: run prompt and exit.")
 @click.option("--output-format", type=click.Choice(["text", "json"]), default="text", help="Output format for -p mode.")
-@click.option("-c", "--continue-session", "continue_session", is_flag=True, default=False, help="Continue the last session.")
+@click.option(
+    "-c", "--continue-session", "continue_session", is_flag=True, default=False, help="Continue the last session."
+)
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -59,7 +61,7 @@ def main(
 def setup(key: str) -> None:
     """Save API key to local config (~/.agnescli/config.json)."""
     save_api_key(key)
-    console.print(f"[green]API key saved to ~/.agnescli/config.json[/]")
+    console.print("[green]API key saved to ~/.agnescli/config.json[/]")
 
 
 @main.command()
@@ -90,7 +92,7 @@ def models() -> None:
 @click.argument("session_id", required=False)
 def resume(session_id: str | None) -> None:
     """Resume a previous session. Lists sessions if no ID given."""
-    from .session import get_last_session_id, list_sessions
+    from .session import list_sessions
 
     if session_id is None:
         sessions = list_sessions(limit=10)
@@ -98,8 +100,9 @@ def resume(session_id: str | None) -> None:
             console.print("[dim]No saved sessions.[/]")
             return
 
-        from rich.table import Table
         from datetime import datetime
+
+        from rich.table import Table
 
         table = Table(title="Recent Sessions", show_lines=False)
         table.add_column("#", style="cyan", justify="right")
@@ -113,7 +116,7 @@ def resume(session_id: str | None) -> None:
             table.add_row(str(i), s["id"], str(s["messages"]), s["preview"][:60], ts)
 
         console.print(table)
-        console.print(f"\n[dim]Usage: agnescli resume <session_id>[/]")
+        console.print("\n[dim]Usage: agnescli resume <session_id>[/]")
         return
 
     # Resume specific session
@@ -128,14 +131,14 @@ def resume(session_id: str | None) -> None:
 def _run_prompt(client: Any, prompt: str, *, thinking: bool, output_format: str) -> None:
     """Non-interactive mode: send prompt, print result, exit."""
     import json as json_mod
+
     from .agent import _agent_loop
     from .config import get_config
     from .session import new_session_id
 
     cfg = get_config()
     system = (
-        "You are an autonomous AI agent running inside Agnescli. "
-        "Execute the user's request and provide a clear result."
+        "You are an autonomous AI agent running inside Agnescli. Execute the user's request and provide a clear result."
     )
     messages = [{"role": "system", "content": system}]
     messages.append({"role": "user", "content": prompt})

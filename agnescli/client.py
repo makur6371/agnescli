@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import sys
 import time
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import httpx
 
@@ -43,8 +44,11 @@ def _retry(fn, *args, **kwargs):
             if e.status_code not in RETRYABLE_STATUS or attempt == MAX_RETRIES - 1:
                 raise
             last_exc = e
-            delay = 2 ** attempt
-            print(f"  [retry] {e.status_code} error, retrying in {delay}s ({attempt + 1}/{MAX_RETRIES})...", file=sys.stderr)
+            delay = 2**attempt
+            print(
+                f"  [retry] {e.status_code} error, retrying in {delay}s ({attempt + 1}/{MAX_RETRIES})...",
+                file=sys.stderr,
+            )
             time.sleep(delay)
     raise last_exc  # type: ignore
 

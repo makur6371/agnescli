@@ -58,12 +58,14 @@ def list_sessions(limit: int = 20) -> list[dict[str, Any]]:
             if m.get("role") == "user":
                 preview = m.get("content", "")[:80]
                 break
-        sessions.append({
-            "id": sid,
-            "modified": f.stat().st_mtime,
-            "messages": len(messages),
-            "preview": preview,
-        })
+        sessions.append(
+            {
+                "id": sid,
+                "modified": f.stat().st_mtime,
+                "messages": len(messages),
+                "preview": preview,
+            }
+        )
         if len(sessions) >= limit:
             break
     return sessions

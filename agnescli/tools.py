@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import re
 import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .client import AgnesClient
@@ -16,13 +15,29 @@ if TYPE_CHECKING:
 # ── Path protection ───────────────────────────────────────────────────
 
 PROTECTED_PREFIXES = [
-    ".git", ".env", ".ssh", ".gnupg", ".aws", ".azure", ".config",
-    ".npmrc", ".pypirc", ".docker", ".kube", "node_modules",
+    ".git",
+    ".env",
+    ".ssh",
+    ".gnupg",
+    ".aws",
+    ".azure",
+    ".config",
+    ".npmrc",
+    ".pypirc",
+    ".docker",
+    ".kube",
+    "node_modules",
 ]
 
 PROTECTED_EXACT = [
-    ".env", ".env.local", ".env.production", "id_rsa", "id_ed25519",
-    "credentials.json", "secrets.json", "token.json",
+    ".env",
+    ".env.local",
+    ".env.production",
+    "id_rsa",
+    "id_ed25519",
+    "credentials.json",
+    "secrets.json",
+    "token.json",
 ]
 
 
@@ -106,7 +121,10 @@ TOOLS: list[dict[str, Any]] = [
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "Path to the file to edit"},
-                    "old_string": {"type": "string", "description": "Exact text to find and replace (must appear exactly once)"},
+                    "old_string": {
+                        "type": "string",
+                        "description": "Exact text to find and replace (must appear exactly once)",
+                    },
                     "new_string": {"type": "string", "description": "Text to replace it with"},
                 },
                 "required": ["path", "old_string", "new_string"],
@@ -137,7 +155,10 @@ TOOLS: list[dict[str, Any]] = [
                 "type": "object",
                 "properties": {
                     "pattern": {"type": "string", "description": "Glob pattern to match (e.g. '**/*.py')"},
-                    "path": {"type": "string", "description": "Root directory to search from (default: current directory)"},
+                    "path": {
+                        "type": "string",
+                        "description": "Root directory to search from (default: current directory)",
+                    },
                 },
                 "required": ["pattern"],
             },
@@ -152,7 +173,10 @@ TOOLS: list[dict[str, Any]] = [
                 "type": "object",
                 "properties": {
                     "pattern": {"type": "string", "description": "Regex pattern to search for"},
-                    "path": {"type": "string", "description": "File or directory to search in (default: current directory)"},
+                    "path": {
+                        "type": "string",
+                        "description": "File or directory to search in (default: current directory)",
+                    },
                     "glob": {"type": "string", "description": "File pattern to filter, e.g. '*.py' (optional)"},
                 },
                 "required": ["pattern"],
@@ -183,7 +207,10 @@ TOOLS: list[dict[str, Any]] = [
                 "properties": {
                     "prompt": {"type": "string", "description": "Text description of the image to generate"},
                     "size": {"type": "string", "description": "Image size, e.g. '1024x768' (default)"},
-                    "input_image_url": {"type": "string", "description": "URL of input image for image-to-image (optional)"},
+                    "input_image_url": {
+                        "type": "string",
+                        "description": "URL of input image for image-to-image (optional)",
+                    },
                 },
                 "required": ["prompt"],
             },
@@ -198,7 +225,10 @@ TOOLS: list[dict[str, Any]] = [
                 "type": "object",
                 "properties": {
                     "prompt": {"type": "string", "description": "Text description of the video to generate"},
-                    "input_image_url": {"type": "string", "description": "URL of input image for image-to-video (optional)"},
+                    "input_image_url": {
+                        "type": "string",
+                        "description": "URL of input image for image-to-video (optional)",
+                    },
                     "width": {"type": "integer", "description": "Video width (default: 1152)"},
                     "height": {"type": "integer", "description": "Video height (default: 768)"},
                     "num_frames": {"type": "integer", "description": "Number of frames, 8n+1, max 441 (default: 121)"},
@@ -214,7 +244,7 @@ TOOLS: list[dict[str, Any]] = [
 # ── Tool execution ─────────────────────────────────────────────────────
 
 
-def execute_tool(name: str, arguments: dict[str, Any], client: "AgnesClient") -> str:
+def execute_tool(name: str, arguments: dict[str, Any], client: AgnesClient) -> str:
     """Execute a tool by name and return the result as a string."""
     try:
         match name:
@@ -415,7 +445,7 @@ def _grep(pattern: str, path: str = ".", glob: str | None = None) -> str:
         return f"No matches for '{pattern}' in {path}"
     output = "\n".join(results)
     if len(results) >= 100:
-        output += f"\n... (showing first 100 matches)"
+        output += "\n... (showing first 100 matches)"
     return output
 
 
@@ -441,7 +471,7 @@ def _python_exec(code: str) -> str:
 
 
 def _generate_image(
-    client: "AgnesClient",
+    client: AgnesClient,
     prompt: str,
     size: str = "1024x768",
     input_image_url: str | None = None,
@@ -464,7 +494,7 @@ def _generate_image(
 
 
 def _generate_video(
-    client: "AgnesClient",
+    client: AgnesClient,
     prompt: str,
     input_image_url: str | None = None,
     width: int = 1152,

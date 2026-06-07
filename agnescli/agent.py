@@ -15,6 +15,8 @@ from rich.panel import Panel
 from rich.table import Table
 
 from .client import AgnesAPIError, AgnesClient
+from .completer import _get_session as _get_pt_session
+from .completer import create_session, prompt_confirm, prompt_slash
 from .config import get_config
 from .session import (
     get_last_session_id,
@@ -23,9 +25,8 @@ from .session import (
     new_session_id,
     save_message,
 )
-from .tools import TOOLS, execute_tool, check_path_protection
+from .tools import TOOLS, execute_tool
 from .ui import console
-from .completer import create_session, prompt_slash, prompt_confirm, _get_session as _get_pt_session
 
 SYSTEM_PROMPT = (
     "You are an autonomous AI agent running inside Agnescli. "
@@ -59,7 +60,7 @@ PLANNER_PROMPT = (
 
 EXECUTOR_PROMPT_TEMPLATE = (
     "You are executing a plan. Here is the plan:\n\n{plan}\n\n"
-    "Focus ONLY on step {current_step}: \"{current_desc}\"\n"
+    'Focus ONLY on step {current_step}: "{current_desc}"\n'
     "Execute this step using your tools. When done, report the result briefly.\n"
     "Do not skip ahead to other steps."
 )
@@ -275,7 +276,9 @@ def run_agent(
             save_message(session_id, {"role": "user", "content": task})
             try:
                 _plan_and_execute(
-                    client, messages, system,
+                    client,
+                    messages,
+                    system,
                     thinking=state["thinking"],
                     auto_confirm=state["auto_confirm"],
                     max_iterations=state["max_iterations"],
@@ -458,10 +461,15 @@ def _plan_and_execute(
     if steps is None:
         console.print("[dim]Simple task - executing directly.[/]")
         _agent_loop(
-            client, messages,
-            thinking=thinking, auto_confirm=auto_confirm,
-            max_iterations=max_iterations, session_id=session_id,
-            model=model, max_tokens=max_tokens, temperature=temperature,
+            client,
+            messages,
+            thinking=thinking,
+            auto_confirm=auto_confirm,
+            max_iterations=max_iterations,
+            session_id=session_id,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
         )
         return
 
@@ -484,10 +492,17 @@ def _plan_and_execute(
     # Execute plan step by step
     console.print()
     _execute_plan(
-        client, messages, system, steps,
-        thinking=thinking, auto_confirm=auto_confirm,
-        max_iterations=max_iterations, session_id=session_id,
-        model=model, max_tokens=max_tokens, temperature=temperature,
+        client,
+        messages,
+        system,
+        steps,
+        thinking=thinking,
+        auto_confirm=auto_confirm,
+        max_iterations=max_iterations,
+        session_id=session_id,
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
     )
 
 
@@ -511,17 +526,21 @@ def _execute_plan(
     results: list[str] = []
 
     # Build plan summary for context
-    plan_summary = "\n".join(f"{i+1}. {s}" for i, s in enumerate(steps))
+    plan_summary = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(steps))
 
     for i, step in enumerate(steps):
         # Show progress header
         _show_plan_progress(i, steps, results)
 
         # Build step-specific messages
-        step_system = system + "\n\n" + EXECUTOR_PROMPT_TEMPLATE.format(
-            plan=plan_summary,
-            current_step=i + 1,
-            current_desc=step,
+        step_system = (
+            system
+            + "\n\n"
+            + EXECUTOR_PROMPT_TEMPLATE.format(
+                plan=plan_summary,
+                current_step=i + 1,
+                current_desc=step,
+            )
         )
         step_messages = [
             {"role": "system", "content": step_system},
@@ -530,21 +549,25 @@ def _execute_plan(
         for m in messages[-6:]:
             if m.get("role") != "system":
                 step_messages.append(m)
-        step_messages.append({"role": "user", "content": f"Execute step {i+1}: {step}"})
+        step_messages.append({"role": "user", "content": f"Execute step {i + 1}: {step}"})
 
         try:
             _agent_loop(
-                client, step_messages,
-                thinking=thinking, auto_confirm=auto_confirm,
+                client,
+                step_messages,
+                thinking=thinking,
+                auto_confirm=auto_confirm,
                 max_iterations=max(10, max_iterations // total),
                 session_id=session_id,
-                model=model, max_tokens=max_tokens, temperature=temperature,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
             )
         except KeyboardInterrupt:
-            console.print(f"\n[yellow]Stopped at step {i+1}/{total}[/]")
+            console.print(f"\n[yellow]Stopped at step {i + 1}/{total}[/]")
             break
         except Exception as exc:
-            console.print(f"\n[red]Step {i+1} failed: {exc}[/]")
+            console.print(f"\n[red]Step {i + 1} failed: {exc}[/]")
             results.append(f"FAILED: {exc}")
             continue
 
@@ -570,12 +593,14 @@ def _execute_plan(
     console.print()
     _show_plan_progress(total, steps, results)
     status = "[green]Complete[/]" if completed == total else f"[yellow]{completed}/{total} completed[/]"
-    console.print(Panel(
-        f"{status}\nSteps executed: {completed}/{total}",
-        title="[bold]Plan Result",
-        border_style="green" if completed == total else "yellow",
-        expand=False,
-    ))
+    console.print(
+        Panel(
+            f"{status}\nSteps executed: {completed}/{total}",
+            title="[bold]Plan Result",
+            border_style="green" if completed == total else "yellow",
+            expand=False,
+        )
+    )
 
 
 def _show_plan_progress(current: int, steps: list[str], results: list[str]) -> None:
@@ -592,11 +617,11 @@ def _show_plan_progress(current: int, steps: list[str], results: list[str]) -> N
                     result_preview = f" [red]({r})[/]"
                 else:
                     result_preview = f" [dim]({r[:60]}{'...' if len(r) > 60 else ''})[/]"
-            lines.append(f"  {icon} {i+1}. {step}{result_preview}")
+            lines.append(f"  {icon} {i + 1}. {step}{result_preview}")
         elif i == current:
-            lines.append(f"  [cyan bold]>>[/] {i+1}. [bold]{step}[/]")
+            lines.append(f"  [cyan bold]>>[/] {i + 1}. [bold]{step}[/]")
         else:
-            lines.append(f"  [dim]  {i+1}. {step}[/]")
+            lines.append(f"  [dim]  {i + 1}. {step}[/]")
 
     console.print(Panel("\n".join(lines), title="[bold]Execution Plan", border_style="dim", expand=False))
 
@@ -619,8 +644,15 @@ def _agent_loop(
     total_tokens = 0
 
     for _ in range(max_iterations):
-        response = client.chat(messages, stream=True, thinking=thinking, tools=TOOLS,
-                               model=model, max_tokens=max_tokens, temperature=temperature)
+        response = client.chat(
+            messages,
+            stream=True,
+            thinking=thinking,
+            tools=TOOLS,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
 
         full_content = ""
         tool_calls: list[dict[str, Any]] = []
@@ -680,7 +712,7 @@ def _agent_loop(
                 fn_args = json.loads(fn_args_str) if fn_args_str else {}
             except json.JSONDecodeError:
                 fn_args = {}
-                console.print(f"[yellow]Warning: malformed tool arguments[/]")
+                console.print("[yellow]Warning: malformed tool arguments[/]")
 
             _show_tool_call(fn_name, fn_args)
 
@@ -699,7 +731,7 @@ def _agent_loop(
                     result = execute_tool(fn_name, fn_args, client=client)
                 if not result.startswith("Error:") or retry == 1:
                     break
-                console.print(f"[yellow]  Tool failed, retrying...[/]")
+                console.print("[yellow]  Tool failed, retrying...[/]")
 
             _show_result(fn_name, result)
             messages.append({"role": "tool", "tool_call_id": tc_id, "content": result})
