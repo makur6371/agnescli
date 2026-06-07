@@ -18,6 +18,7 @@ from .client import AgnesAPIError, AgnesClient
 from .completer import _get_session as _get_pt_session
 from .completer import create_session, prompt_confirm, prompt_slash
 from .config import get_config
+from .i18n import available_langs, get_lang, lang_display_name, set_lang, t
 from .session import (
     get_last_session_id,
     list_sessions,
@@ -98,15 +99,20 @@ def run_agent(
 ) -> None:
     cfg = get_config()
 
+    # Initialize i18n
+    from .i18n import init as i18n_init
+
+    i18n_init(lang=cfg.get("lang"))
+
     # Resume or create session
     if resume_session:
         loaded = load_session(resume_session)
         if not loaded:
-            console.print(f"[red]Session not found: {resume_session}[/]")
+            console.print(f"[red]{t('session.not_found', id=resume_session)}[/]")
             return
         messages = loaded
         session_id = resume_session
-        console.print(f"[dim]Resumed session: {session_id} ({len(messages)} messages)[/]")
+        console.print(f"[dim]{t('session.resumed', id=session_id, count=len(messages))}[/]")
     elif continue_session:
         last_id = get_last_session_id()
         if last_id:
@@ -114,7 +120,7 @@ def run_agent(
             if loaded:
                 messages = loaded
                 session_id = last_id
-                console.print(f"[dim]Continuing session: {session_id} ({len(messages)} messages)[/]")
+                console.print(f"[dim]{t('session.continuing', id=session_id, count=len(messages))}[/]")
             else:
                 session_id = new_session_id()
                 messages = [{"role": "system", "content": system}]
@@ -149,7 +155,7 @@ def run_agent(
         try:
             user_input = prompt_slash(pt_session).strip()
         except (EOFError, KeyboardInterrupt):
-            console.print("\nBye!")
+            console.print(f"\n{t('agent.bye')}")
             break
 
         if not user_input:
@@ -160,21 +166,21 @@ def run_agent(
 
         # ── Slash commands ─────────────────────────────────────────
         if action == "/exit":
-            console.print("Bye!")
+            console.print(t("agent.bye"))
             break
 
         if action == "/clear":
             messages = [{"role": "system", "content": system}]
             session_id = new_session_id()
             state["session_id"] = session_id
-            console.print("[dim]Conversation cleared.[/]")
+            console.print(f"[dim]{t('session.cleared')}[/]")
             continue
 
         if action == "/new":
             messages = [{"role": "system", "content": system}]
             session_id = new_session_id()
             state["session_id"] = session_id
-            console.print(f"[dim]New session: {session_id}[/]")
+            console.print(f"[dim]{t('session.new', id=session_id)}[/]")
             continue
 
         if action == "/save":
@@ -191,11 +197,11 @@ def run_agent(
             if not sid:
                 sessions = list_sessions(limit=10)
                 if not sessions:
-                    console.print("[dim]No saved sessions.[/]")
+                    console.print(f"[dim]{t('session.no_saved')}[/]")
                     continue
                 _show_sessions()
                 try:
-                    pick = _get_pt_session().prompt("[dim]Session ID (or #): [/]").strip()
+                    pick = _get_pt_session().prompt(f"[dim]{t('session.prompt_id')}[/]").strip()
                 except (EOFError, KeyboardInterrupt):
                     continue
                 if not pick:
@@ -207,12 +213,12 @@ def run_agent(
                     sid = pick
             loaded = load_session(sid)
             if not loaded:
-                console.print(f"[red]Session not found: {sid}[/]")
+                console.print(f"[red]{t('session.not_found', id=sid)}[/]")
                 continue
             messages = loaded
             session_id = sid
             state["session_id"] = session_id
-            console.print(f"[dim]Resumed session: {sid} ({len(messages)} messages)[/]")
+            console.print(f"[dim]{t('session.resumed', id=sid, count=len(messages))}[/]")
             continue
 
         if action == "/compact":
@@ -225,14 +231,14 @@ def run_agent(
 
         if action == "/thinking":
             state["thinking"] = not state["thinking"]
-            status = "ON" if state["thinking"] else "OFF"
-            console.print(f"[cyan]Thinking mode: {status}[/]")
+            status = t("config.on") if state["thinking"] else t("config.off")
+            console.print(f"[cyan]{t('cmd.thinking', status=status)}[/]")
             continue
 
         if action == "/auto":
             state["auto_confirm"] = not state["auto_confirm"]
-            status = "ON" if state["auto_confirm"] else "OFF"
-            console.print(f"[cyan]Auto-confirm: {status}[/]")
+            status = t("config.on") if state["auto_confirm"] else t("config.off")
+            console.print(f"[cyan]{t('cmd.auto', status=status)}[/]")
             continue
 
         if action == "/help":
@@ -243,10 +249,34 @@ def run_agent(
             _show_status(state, messages, session_id)
             continue
 
+        if action == "/lang":
+            lang_arg = cmd[1] if len(cmd) > 1 else ""
+            if not lang_arg:
+                # Show available languages
+                langs = available_langs()
+                current = get_lang()
+                parts = []
+                for lang_code in langs:
+                    name = lang_display_name(lang_code)
+                    marker = " *" if lang_code == current else ""
+                    parts.append(f"  [cyan]{lang_code}[/] ({name}){marker}")
+                console.print("\n".join(parts))
+                continue
+            if set_lang(lang_arg):
+                cfg["lang"] = lang_arg
+                from .config import save_config_value
+
+                save_config_value("lang", lang_arg)
+                console.print(f"[green]{t('lang.switched', lang=lang_display_name(lang_arg))}[/]")
+                _show_banner(state)
+            else:
+                console.print(f"[red]Unknown language: {lang_arg}[/]")
+            continue
+
         if action == "/image":
             prompt = user_input[6:].strip()
             if not prompt:
-                console.print("[yellow]Usage: /image <prompt>[/]")
+                console.print(f"[yellow]{t('image.usage')}[/]")
                 continue
             messages.append({"role": "user", "content": user_input})
             save_message(session_id, {"role": "user", "content": user_input})
@@ -258,7 +288,7 @@ def run_agent(
         if action == "/video":
             prompt = user_input[7:].strip()
             if not prompt:
-                console.print("[yellow]Usage: /video <prompt>[/]")
+                console.print(f"[yellow]{t('video.usage')}[/]")
                 continue
             messages.append({"role": "user", "content": user_input})
             save_message(session_id, {"role": "user", "content": user_input})
@@ -288,11 +318,11 @@ def run_agent(
                     temperature=state["temperature"],
                 )
             except KeyboardInterrupt:
-                console.print("\n[dim]Interrupted.[/]")
+                console.print(f"\n[dim]{t('agent.interrupted')}[/]")
             except AgnesAPIError as exc:
-                console.print(f"\n[red]API Error ({exc.status_code}): {exc.message}[/]")
+                console.print(f"\n[red]{t('agent.api_error', code=exc.status_code, msg=exc.message)}[/]")
             except Exception as exc:
-                console.print(f"\n[red]Error: {exc}[/]")
+                console.print(f"\n[red]{t('agent.error', msg=exc)}[/]")
             continue
 
         # ── Agent task ─────────────────────────────────────────────
@@ -302,9 +332,9 @@ def run_agent(
         # Auto-compact check
         est_tokens = _estimate_tokens(messages)
         if est_tokens > MAX_TOKENS_BEFORE_COMPACT:
-            console.print(f"[yellow]Conversation is ~{est_tokens} tokens. Consider /compact to free context.[/]")
+            console.print(f"[yellow]{t('compact.suggest_tokens', n=est_tokens)}[/]")
         elif len(messages) > MAX_MESSAGES_BEFORE_COMPACT:
-            console.print(f"[yellow]Conversation is long ({len(messages)} messages). Consider /compact.[/]")
+            console.print(f"[yellow]{t('compact.suggest_msgs', n=len(messages))}[/]")
 
         try:
             tokens_used = _agent_loop(
@@ -320,45 +350,48 @@ def run_agent(
             )
             state["total_tokens"] += tokens_used
         except KeyboardInterrupt:
-            console.print("\n[dim]Interrupted.[/]")
+            console.print(f"\n[dim]{t('agent.interrupted')}[/]")
         except AgnesAPIError as exc:
-            console.print(f"\n[red]API Error ({exc.status_code}): {exc.message}[/]")
+            console.print(f"\n[red]{t('agent.api_error', code=exc.status_code, msg=exc.message)}[/]")
             messages.pop()
         except Exception as exc:
-            console.print(f"\n[red]Error: {exc}[/]")
+            console.print(f"\n[red]{t('agent.error', msg=exc)}[/]")
             messages.pop()
 
 
 def _show_status_line(state: dict) -> None:
-    t = "T" if state["thinking"] else ""
-    a = "A" if state["auto_confirm"] else ""
-    flags = " ".join(filter(None, [t, a]))
+    th = "T" if state["thinking"] else ""
+    au = "A" if state["auto_confirm"] else ""
+    flags = " ".join(filter(None, [th, au]))
     flag_str = f" [{flags}]" if flags else ""
-    console.print(f"[bold cyan]Agnescli[/]{flag_str} - type a task or [bold]/help[/] for commands")
+    console.print(f"[bold cyan]{t('agent.title')}[/]{flag_str} - {t('agent.type_or_help')}")
 
 
 def _show_banner(state: dict) -> None:
-    t = "[green]ON[/]" if state["thinking"] else "[dim]OFF[/]"
-    a = "[green]ON[/]" if state["auto_confirm"] else "[dim]OFF[/]"
+    on = t("config.on")
+    off = t("config.off")
+    th = "[green]" + on + "[/]" if state["thinking"] else "[dim]" + off + "[/]"
+    au = "[green]" + on + "[/]" if state["auto_confirm"] else "[dim]" + off + "[/]"
     console.print(
         Panel(
-            "[bold cyan]Agnescli[/] - autonomous agent\n"
-            "Type a task and I'll execute it.\n\n"
-            "[bold]/plan[/] task       - plan then execute\n"
-            "[bold]/image[/] prompt     - generate an image\n"
-            "[bold]/video[/] prompt     - generate a video\n"
-            "[bold]/thinking[/]        - toggle thinking (" + t + ")\n"
-            "[bold]/auto[/]            - toggle auto-confirm (" + a + ")\n"
-            "[bold]/compact[/]         - compress conversation\n"
-            "[bold]/new[/]             - new session\n"
-            "[bold]/resume[/] [id]     - resume session\n"
-            "[bold]/sessions[/]        - list sessions\n"
-            "[bold]/config[/]          - show config\n"
-            "[bold]/status[/]          - quick status\n"
-            "[bold]/clear[/]           - reset conversation\n"
-            "[bold]/save[/] [file]     - save history\n"
-            "[bold]/help[/]            - show this message\n"
-            "[bold]/exit[/]            - quit",
+            f"[bold cyan]{t('agent.title')}[/] - {t('agent.subtitle')}\n"
+            f"{t('agent.type_task')}\n\n"
+            f"[bold]/plan[/] task       - {t('cmd.plan')}\n"
+            f"[bold]/image[/] prompt     - {t('cmd.image')}\n"
+            f"[bold]/video[/] prompt     - {t('cmd.video')}\n"
+            f"[bold]/thinking[/]        - {t('cmd.thinking', status=th)}\n"
+            f"[bold]/auto[/]            - {t('cmd.auto', status=au)}\n"
+            f"[bold]/compact[/]         - {t('cmd.compact')}\n"
+            f"[bold]/new[/]             - {t('cmd.new')}\n"
+            f"[bold]/resume[/] [id]     - {t('cmd.resume')}\n"
+            f"[bold]/sessions[/]        - {t('cmd.sessions')}\n"
+            f"[bold]/config[/]          - {t('cmd.config')}\n"
+            f"[bold]/status[/]          - {t('cmd.status')}\n"
+            f"[bold]/clear[/]           - {t('cmd.clear')}\n"
+            f"[bold]/save[/] [file]     - {t('cmd.save')}\n"
+            f"[bold]/lang[/] [code]     - {t('cmd.lang')}\n"
+            f"[bold]/help[/]            - {t('cmd.help')}\n"
+            f"[bold]/exit[/]            - {t('cmd.exit')}",
             border_style="cyan",
         )
     )
@@ -374,7 +407,7 @@ def _plan_task(client: AgnesClient, task: str) -> list[str] | None:
         {"role": "user", "content": task},
     ]
 
-    with console.status("[bold cyan]Planning...", spinner="dots"):
+    with console.status(f"[bold cyan]{t('plan.planning')}", spinner="dots"):
         resp = client.chat(plan_messages, stream=False, max_tokens=1024)
     content = resp["choices"][0]["message"]["content"].strip()
 
@@ -398,14 +431,14 @@ def _display_plan(steps: list[str]) -> None:
     for i, step in enumerate(steps, 1):
         lines.append(f"  [cyan]{i}.[/] {step}")
     plan_text = "\n".join(lines)
-    console.print(Panel(plan_text, title="[bold]Execution Plan", border_style="cyan", expand=False))
+    console.print(Panel(plan_text, title=f"[bold]{t('plan.title')}", border_style="cyan", expand=False))
 
 
 def _confirm_plan(steps: list[str]) -> str:
     """Ask user to approve the plan. Returns 'y', 'n', or 'edit'."""
     try:
         session = _get_pt_session()
-        answer = session.prompt("\n[dim]Execute plan? [Y/n/edit] [/]").strip().lower()
+        answer = session.prompt(f"\n[dim]{t('plan.execute_prompt')}[/]").strip().lower()
         if answer in ("", "y", "yes"):
             return "y"
         if answer in ("n", "no"):
@@ -419,7 +452,7 @@ def _confirm_plan(steps: list[str]) -> str:
 
 def _edit_plan(steps: list[str]) -> list[str] | None:
     """Let user edit the plan interactively."""
-    console.print("[dim]Enter new steps (empty line to finish):[/]")
+    console.print(f"[dim]{t('plan.edit_prompt')}[/]")
     session = _get_pt_session()
     new_steps = []
     while True:
@@ -447,7 +480,6 @@ def _plan_and_execute(
     temperature: float = 0.7,
 ) -> None:
     """Plan a task, get user approval, then execute step by step."""
-    # Get the last user message as the task
     task = ""
     for m in reversed(messages):
         if m.get("role") == "user":
@@ -459,7 +491,7 @@ def _plan_and_execute(
     steps = _plan_task(client, task)
 
     if steps is None:
-        console.print("[dim]Simple task - executing directly.[/]")
+        console.print(f"[dim]{t('plan.simple_task')}[/]")
         _agent_loop(
             client,
             messages,
@@ -477,14 +509,14 @@ def _plan_and_execute(
 
     action = _confirm_plan(steps)
     if action == "n":
-        console.print("[dim]Plan cancelled.[/]")
+        console.print(f"[dim]{t('plan.cancelled')}[/]")
         messages.append({"role": "assistant", "content": "Plan cancelled by user."})
         save_message(session_id, {"role": "assistant", "content": "Plan cancelled by user."})
         return
     if action == "edit":
         edited = _edit_plan(steps)
         if edited is None:
-            console.print("[dim]Plan cancelled.[/]")
+            console.print(f"[dim]{t('plan.cancelled')}[/]")
             return
         steps = edited
         _display_plan(steps)
@@ -525,14 +557,11 @@ def _execute_plan(
     completed = 0
     results: list[str] = []
 
-    # Build plan summary for context
     plan_summary = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(steps))
 
     for i, step in enumerate(steps):
-        # Show progress header
         _show_plan_progress(i, steps, results)
 
-        # Build step-specific messages
         step_system = (
             system
             + "\n\n"
@@ -545,7 +574,6 @@ def _execute_plan(
         step_messages = [
             {"role": "system", "content": step_system},
         ]
-        # Add recent conversation context (last 6 messages)
         for m in messages[-6:]:
             if m.get("role") != "system":
                 step_messages.append(m)
@@ -564,14 +592,13 @@ def _execute_plan(
                 temperature=temperature,
             )
         except KeyboardInterrupt:
-            console.print(f"\n[yellow]Stopped at step {i + 1}/{total}[/]")
+            console.print(f"\n[yellow]{t('plan.stopped_at', n=i + 1, total=total)}[/]")
             break
         except Exception as exc:
-            console.print(f"\n[red]Step {i + 1} failed: {exc}[/]")
+            console.print(f"\n[red]{t('plan.step_failed', n=i + 1, error=exc)}[/]")
             results.append(f"FAILED: {exc}")
             continue
 
-        # Extract result from the step
         step_result = "Done"
         for m in reversed(step_messages):
             if m.get("role") == "assistant" and m.get("content"):
@@ -580,9 +607,8 @@ def _execute_plan(
         results.append(step_result)
         completed += 1
 
-        # Merge step messages back into main conversation
         existing_keys = {json.dumps(m, sort_keys=True, ensure_ascii=False, default=str) for m in messages}
-        for m in step_messages[1:]:  # skip system
+        for m in step_messages[1:]:
             key = json.dumps(m, sort_keys=True, ensure_ascii=False, default=str)
             if key not in existing_keys:
                 messages.append(m)
@@ -592,11 +618,15 @@ def _execute_plan(
     # Final summary
     console.print()
     _show_plan_progress(total, steps, results)
-    status = "[green]Complete[/]" if completed == total else f"[yellow]{completed}/{total} completed[/]"
+    status = (
+        f"[green]{t('plan.complete')}[/]"
+        if completed == total
+        else f"[yellow]{t('plan.completed_n', n=completed, total=total)}[/]"
+    )
     console.print(
         Panel(
-            f"{status}\nSteps executed: {completed}/{total}",
-            title="[bold]Plan Result",
+            f"{status}\n{t('plan.steps_executed', n=completed, total=total)}",
+            title=f"[bold]{t('plan.result_title')}",
             border_style="green" if completed == total else "yellow",
             expand=False,
         )
@@ -623,7 +653,7 @@ def _show_plan_progress(current: int, steps: list[str], results: list[str]) -> N
         else:
             lines.append(f"  [dim]  {i + 1}. {step}[/]")
 
-    console.print(Panel("\n".join(lines), title="[bold]Execution Plan", border_style="dim", expand=False))
+    console.print(Panel("\n".join(lines), title=f"[bold]{t('plan.title')}", border_style="dim", expand=False))
 
 
 # ── Agent loop ──────────────────────────────────────────────────────
@@ -663,7 +693,6 @@ def _agent_loop(
             for chunk in response:
                 choices = chunk.get("choices", [])
                 if not choices:
-                    # Usage chunk
                     if "usage" in chunk:
                         usage = chunk["usage"]
                     continue
@@ -691,7 +720,7 @@ def _agent_loop(
             prompt_t = usage.get("prompt_tokens", 0)
             comp_t = usage.get("completion_tokens", 0)
             total_tokens += prompt_t + comp_t
-            console.print(f"[dim]  tokens: {prompt_t} in + {comp_t} out (session total: {total_tokens})[/]")
+            console.print(f"[dim]  {t('agent.tokens', prompt=prompt_t, completion=comp_t, total=total_tokens)}[/]")
 
         if not tool_calls:
             if full_content:
@@ -712,32 +741,32 @@ def _agent_loop(
                 fn_args = json.loads(fn_args_str) if fn_args_str else {}
             except json.JSONDecodeError:
                 fn_args = {}
-                console.print("[yellow]Warning: malformed tool arguments[/]")
+                console.print(f"[yellow]{t('agent.warning_malformed_args')}[/]")
 
             _show_tool_call(fn_name, fn_args)
 
             if not auto_confirm:
                 if not _confirm():
-                    result = "User declined to execute this tool."
+                    result = t("agent.tool_declined")
                     messages.append({"role": "tool", "tool_call_id": tc_id, "content": result})
                     save_message(session_id, {"role": "tool", "tool_call_id": tc_id, "content": result})
-                    console.print("[dim]Skipped.[/]")
+                    console.print(f"[dim]{t('agent.skipped')}[/]")
                     continue
 
             # Execute with retry on failure
             result = None
             for retry in range(2):
-                with console.status(f"[bold cyan]Running {fn_name}...", spinner="dots"):
+                with console.status(f"[bold cyan]{t('agent.running', name=fn_name)}", spinner="dots"):
                     result = execute_tool(fn_name, fn_args, client=client)
                 if not result.startswith("Error:") or retry == 1:
                     break
-                console.print("[yellow]  Tool failed, retrying...[/]")
+                console.print(f"[yellow]  {t('agent.tool_failed_retry')}[/]")
 
             _show_result(fn_name, result)
             messages.append({"role": "tool", "tool_call_id": tc_id, "content": result})
             save_message(session_id, {"role": "tool", "tool_call_id": tc_id, "content": result})
 
-    console.print(f"\n[yellow]Reached max iterations ({max_iterations}).[/]")
+    console.print(f"\n[yellow]{t('agent.reached_max', n=max_iterations)}[/]")
     return total_tokens
 
 
@@ -746,74 +775,71 @@ def _agent_loop(
 
 def _compact(client: AgnesClient, messages: list[dict[str, Any]], system: str) -> None:
     if len(messages) <= 3:
-        console.print("[dim]Nothing to compact.[/]")
+        console.print(f"[dim]{t('compact.nothing')}[/]")
         return
 
     before = len(messages)
 
-    # Keep system + last 6 messages
     recent = messages[-6:]
-    old = messages[1:-6]  # Exclude system prompt
+    old = messages[1:-6]
 
     if not old:
-        console.print("[dim]Conversation is short enough, no need to compact.[/]")
+        console.print(f"[dim]{t('compact.too_short')}[/]")
         return
 
-    # Ask model to summarize
     summary_messages = [
         {"role": "system", "content": COMPACT_PROMPT},
         {"role": "user", "content": json.dumps(old, ensure_ascii=False, default=str)[:6000]},
     ]
 
-    with console.status("[bold cyan]Compressing conversation...", spinner="dots"):
+    with console.status(f"[bold cyan]{t('compact.compressing')}", spinner="dots"):
         try:
             resp = client.chat(summary_messages, stream=False, max_tokens=1024)
             summary = resp["choices"][0]["message"]["content"]
         except Exception as e:
-            console.print(f"[red]Compact failed: {e}[/]")
+            console.print(f"[red]{t('compact.failed', error=e)}[/]")
             return
 
-    # Rebuild: system + summary + recent
     messages.clear()
     messages.append({"role": "system", "content": system})
     messages.append({"role": "system", "content": f"[Conversation Summary]\n{summary}"})
     messages.extend(recent)
 
-    console.print(f"[green]Compacted: {before} -> {len(messages)} messages[/]")
+    console.print(f"[green]{t('compact.done', before=before, after=len(messages))}[/]")
 
 
 # ── Image / Video slash commands ────────────────────────────────────
 
 
 def _handle_image(client: AgnesClient, prompt: str) -> str:
-    with console.status("[bold cyan]Generating image...", spinner="dots"):
+    with console.status(f"[bold cyan]{t('image.generating')}", spinner="dots"):
         result = client.image_generate(prompt)
 
     data = result.get("data", [])
     if not data:
-        console.print("[red]No image returned.[/]")
+        console.print(f"[red]{t('image.no_result')}[/]")
         return "Error: No image returned from API"
 
     url = data[0].get("url", "")
     if url:
-        console.print(f"[green]Done![/] {url}")
+        console.print(f"[green]{t('image.done')}[/] {url}")
         webbrowser.open(url)
         return f"Image generated: {url}"
     else:
-        console.print("[red]No image URL in response.[/]")
+        console.print(f"[red]{t('image.no_url')}[/]")
         return "Error: No image URL in response"
 
 
 def _handle_video(client: AgnesClient, prompt: str) -> str:
-    with console.status("[bold cyan]Creating video task...", spinner="dots"):
+    with console.status(f"[bold cyan]{t('video.creating')}", spinner="dots"):
         result = client.video_create(prompt)
 
     task_id = result.get("task_id") or result.get("id", "")
     if not task_id:
-        console.print("[red]No task ID returned.[/]")
+        console.print(f"[red]{t('video.no_task_id')}[/]")
         return "Error: No task ID returned"
 
-    console.print(f"Task: [bold]{task_id}[/] - waiting...")
+    console.print(t("video.waiting", id=task_id))
 
     elapsed = 0
     max_wait = 300
@@ -826,18 +852,18 @@ def _handle_video(client: AgnesClient, prompt: str) -> str:
 
         if st == "completed":
             url = status.get("video_url") or status.get("remixed_from_video_id", "")
-            console.print(f"\n[green]Video ready![/] {url}")
+            console.print(f"\n[green]{t('video.ready')}[/] {url}")
             if url:
                 webbrowser.open(url)
             return f"Video generated ({elapsed}s): {url}"
         if st == "failed":
-            console.print(f"\n[red]Failed: {status.get('error', 'unknown')}[/]")
+            console.print(f"\n[red]{t('video.failed', error=status.get('error', 'unknown'))}[/]")
             return f"Error: Video generation failed - {status.get('error', 'unknown')}"
 
         bar = "=" * (progress // 5) + " " * (20 - progress // 5)
         console.print(f"  [{bar}] {progress}% - {st} ({elapsed}s)")
 
-    console.print(f"\n[red]Timed out after {max_wait}s (task: {task_id})[/]")
+    console.print(f"\n[red]{t('video.timed_out', s=max_wait, id=task_id)}[/]")
     return f"Error: Video generation timed out after {max_wait}s (task: {task_id})"
 
 
@@ -846,30 +872,30 @@ def _handle_video(client: AgnesClient, prompt: str) -> str:
 
 def _show_status(state: dict, messages: list, session_id: str) -> None:
     """Quick status overview."""
-    t = "[green]ON[/]" if state["thinking"] else "[dim]OFF[/]"
-    a = "[green]ON[/]" if state["auto_confirm"] else "[dim]OFF[/]"
+    th = f"[green]{t('config.on')}[/]" if state["thinking"] else f"[dim]{t('config.off')}[/]"
+    au = f"[green]{t('config.on')}[/]" if state["auto_confirm"] else f"[dim]{t('config.off')}[/]"
     msg_count = len(messages)
     tokens = state.get("total_tokens", 0)
     console.print(
-        f"  Session: [cyan]{session_id}[/]  "
-        f"Messages: {msg_count}  "
-        f"Tokens: {tokens}  "
-        f"Thinking: {t}  "
-        f"Auto: {a}  "
-        f"Model: [dim]{state.get('model', '?')}[/]"
+        f"  {t('status.session')}: [cyan]{session_id}[/]  "
+        f"{t('status.messages')}: {msg_count}  "
+        f"{t('status.tokens')}: {tokens}  "
+        f"{t('status.thinking')}: {th}  "
+        f"{t('status.auto')}: {au}  "
+        f"{t('status.model')}: [dim]{state.get('model', '?')}[/]"
     )
 
 
 def _show_sessions() -> None:
     sessions = list_sessions(limit=15)
     if not sessions:
-        console.print("[dim]No saved sessions.[/]")
+        console.print(f"[dim]{t('session.no_saved')}[/]")
         return
 
-    table = Table(title="Recent Sessions", show_lines=False)
+    table = Table(title=t("session.title"), show_lines=False)
     table.add_column("#", style="dim", justify="right")
     table.add_column("ID", style="cyan")
-    table.add_column("Msgs", justify="right")
+    table.add_column(t("session.msgs"), justify="right")
     table.add_column("Preview")
     table.add_column("Time")
 
@@ -881,7 +907,7 @@ def _show_sessions() -> None:
 
 
 def _show_config(state: dict, cfg: dict) -> None:
-    table = Table(title="Configuration", show_lines=False)
+    table = Table(title=t("config.title"), show_lines=False)
     table.add_column("Key", style="cyan")
     table.add_column("Value")
 
@@ -916,7 +942,7 @@ def _show_result(name: str, result: str) -> None:
 
 
 def _confirm() -> bool:
-    return prompt_confirm("Run? [Y/n] ")
+    return prompt_confirm(t("confirm.run"))
 
 
 def _save_history(messages: list[dict[str, Any]], path: str) -> None:
@@ -931,11 +957,11 @@ def _save_history(messages: list[dict[str, Any]], path: str) -> None:
             content = m.get("content") or ""
             if content:
                 lines.append(f"**Agent:** {content}\n")
-            for t in m.get("tool_calls", []):
-                fn = t.get("function", {})
+            for tc in m.get("tool_calls", []):
+                fn = tc.get("function", {})
                 lines.append(f"  -> `{fn.get('name')}({fn.get('arguments', '')})`\n")
         elif role == "tool":
             lines.append(f"  >> {m.get('content', '')[:200]}\n")
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
-    console.print(f"[dim]Saved to {path}[/]")
+    console.print(f"[dim]{t('history.saved', path=path)}[/]")

@@ -7,21 +7,22 @@ from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.styles import Style
 
 COMMANDS = [
-    ("/plan", "task", "Plan then execute"),
-    ("/image", "prompt", "Generate an image"),
-    ("/video", "prompt", "Generate a video"),
-    ("/thinking", "", "Toggle thinking mode"),
-    ("/auto", "", "Toggle auto-confirm"),
-    ("/compact", "", "Compress conversation"),
-    ("/new", "", "New session"),
-    ("/resume", "[id]", "Resume session"),
-    ("/sessions", "", "List sessions"),
-    ("/config", "", "Show config"),
-    ("/status", "", "Quick status"),
-    ("/save", "[file]", "Save history"),
-    ("/clear", "", "Reset conversation"),
-    ("/help", "", "Show help"),
-    ("/exit", "", "Quit"),
+    ("/plan", "task", "cmd.plan"),
+    ("/image", "prompt", "cmd.image"),
+    ("/video", "prompt", "cmd.video"),
+    ("/thinking", "", "cmd.thinking"),
+    ("/auto", "", "cmd.auto"),
+    ("/compact", "", "cmd.compact"),
+    ("/new", "", "cmd.new"),
+    ("/resume", "[id]", "cmd.resume"),
+    ("/sessions", "", "cmd.sessions"),
+    ("/config", "", "cmd.config"),
+    ("/status", "", "cmd.status"),
+    ("/save", "[file]", "cmd.save"),
+    ("/clear", "", "cmd.clear"),
+    ("/lang", "[code]", "cmd.lang"),
+    ("/help", "", "cmd.help"),
+    ("/exit", "", "cmd.exit"),
 ]
 
 STYLE = Style.from_dict(
@@ -38,22 +39,23 @@ STYLE = Style.from_dict(
 
 class SlashCompleter(Completer):
     def get_completions(self, document, complete_event):
+        from .i18n import t
+
         text = document.text_before_cursor.lstrip()
 
-        # Only complete when input starts with / or is empty
         if text and not text.startswith("/"):
             return
 
         word = text.split()[0] if text else "/"
 
-        for cmd, args, desc in COMMANDS:
+        for cmd, args, desc_key in COMMANDS:
             if cmd.startswith(word):
                 display = f"{cmd}  {args}" if args else cmd
                 yield Completion(
                     cmd,
                     start_position=-len(text),
                     display=display,
-                    display_meta=desc,
+                    display_meta=t(desc_key),
                 )
 
 
